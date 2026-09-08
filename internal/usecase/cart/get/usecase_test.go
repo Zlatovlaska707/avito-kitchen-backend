@@ -19,10 +19,10 @@ import (
 )
 
 type cartRepo struct {
-	cart      *cartrepo.Cart
-	getErr    error
-	items     []cartrepo.Item
-	itemsErr  error
+	cart     *cartrepo.Cart
+	getErr   error
+	items    []cartrepo.Item
+	itemsErr error
 }
 
 func (m *cartRepo) GetActiveForUpdate(context.Context, uuid.UUID) (*cartrepo.Cart, error) {

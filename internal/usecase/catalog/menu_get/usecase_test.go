@@ -11,9 +11,9 @@ import (
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
+	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/catalog/menu_get"
 	catalogrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/catalog"
 	venuerepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/venue"
-	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/catalog/menu_get"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
 )
 

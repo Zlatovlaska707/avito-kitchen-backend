@@ -86,6 +86,7 @@ func (m *cartMock) GetActiveForUpdate(context.Context, uuid.UUID) (*cartrepo.Car
 func (m *cartMock) GetActive(context.Context, uuid.UUID) (*cartrepo.Cart, error) {
 	return m.cart, m.err
 }
+
 func (m *cartMock) Create(context.Context, cartrepo.CreateIn) (*cartrepo.Cart, error) {
 	return nil, nil
 }
@@ -190,6 +191,7 @@ func (m *orderMock) GetItems(context.Context, uuid.UUID) ([]orderrepo.Item, erro
 func (m *orderMock) GetStatusHistory(context.Context, uuid.UUID) ([]orderrepo.StatusEvent, error) {
 	return nil, nil
 }
+
 func (m *orderMock) ApplyTransition(context.Context, orderrepo.TransitionIn) (*orderrepo.Order, error) {
 	return nil, nil
 }

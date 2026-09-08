@@ -108,7 +108,7 @@ type SyncOption struct {
 	ExternalID      string `json:"external_id"`
 	Name            string `json:"name"`
 	PriceDeltaMinor int64  `json:"price_delta_minor"`
-	SortOrder       int   `json:"sort_order"`
+	SortOrder       int    `json:"sort_order"`
 }
 
 type SyncResult struct {

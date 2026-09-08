@@ -121,8 +121,8 @@ func (p *Platform) registerWebhook(ctx context.Context) (string, error) {
 		secret = "local-simulator-webhook-secret-change-me"
 	}
 	body, err := json.Marshal(map[string]any{
-		"url":         p.cfg.WebhookPublicURL,
-		"secret":      secret,
+		"url":    p.cfg.WebhookPublicURL,
+		"secret": secret,
 		"event_types": []string{
 			"order.created", "order.accepted", "order.ready", "order.completed",
 			"order.cancelled", "order.rejected", "order.delivery_assigned",

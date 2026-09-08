@@ -54,7 +54,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	out, err := h.uc.Run(ctx, venueslist.In{
 		CityID: cityID, Lat: lat, Lon: lon, Search: search, Sort: sort,
 		OnlyOpen: r.URL.Query().Get("only_open") == "true",
-		Limit: limit, CursorTS: cursorTS, CursorID: cursorID,
+		Limit:    limit, CursorTS: cursorTS, CursorID: cursorID,
 	})
 	if err != nil {
 		httpx.RespondError(w, ctx, apierr.MapDomainError(err), err)

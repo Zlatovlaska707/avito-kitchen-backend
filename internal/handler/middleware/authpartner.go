@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	apikeyrepo "github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/apikey"
 	"github.com/zlatovlaska707/avito-kitchen/internal/handler/apierr"
 	"github.com/zlatovlaska707/avito-kitchen/internal/handler/httpx"
+	apikeyrepo "github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/apikey"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
 )
 

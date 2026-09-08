@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	venuelist "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/list"
 	venuerepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/venue"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
+	venuelist "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/list"
 )
 
 func weekdayISO(t time.Time) int {

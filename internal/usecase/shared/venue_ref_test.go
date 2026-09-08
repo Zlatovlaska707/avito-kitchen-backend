@@ -14,24 +14,28 @@ import (
 )
 
 type venueRepoMock struct {
-	byID   *venuerepo.Venue
-	bySlug *venuerepo.Venue
-	idErr  error
+	byID    *venuerepo.Venue
+	bySlug  *venuerepo.Venue
+	idErr   error
 	slugErr error
 }
 
 func (m *venueRepoMock) Create(context.Context, venuerepo.CreateIn) (*venuerepo.Venue, error) {
 	return nil, nil
 }
+
 func (m *venueRepoMock) Update(context.Context, venuerepo.UpdateIn) (*venuerepo.Venue, error) {
 	return nil, nil
 }
+
 func (m *venueRepoMock) GetByID(context.Context, uuid.UUID) (*venuerepo.Venue, error) {
 	return m.byID, m.idErr
 }
+
 func (m *venueRepoMock) GetBySlug(context.Context, string) (*venuerepo.Venue, error) {
 	return m.bySlug, m.slugErr
 }
+
 func (m *venueRepoMock) List(context.Context, venuerepo.ListFilter) ([]venuerepo.Venue, error) {
 	return nil, nil
 }
@@ -39,9 +43,11 @@ func (m *venueRepoMock) UpdateStatus(context.Context, venuerepo.StatusUpdateIn) 
 func (m *venueRepoMock) GetWorkingHours(context.Context, uuid.UUID) ([]venuerepo.WorkingHour, error) {
 	return nil, nil
 }
+
 func (m *venueRepoMock) ReplaceWorkingHours(context.Context, uuid.UUID, []venuerepo.WorkingHour) error {
 	return nil
 }
+
 func (m *venueRepoMock) IsSlugTaken(context.Context, string, *uuid.UUID) (bool, error) {
 	return false, nil
 }

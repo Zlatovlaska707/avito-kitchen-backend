@@ -58,7 +58,7 @@ func (h *Handler) HandleStoplist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"external_id":   req.ExternalID,
+		"external_id":  req.ExternalID,
 		"is_available": *req.IsAvailable,
 	})
 }

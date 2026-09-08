@@ -17,8 +17,8 @@ func sampleMenuItem() catalogrepo.MenuItem {
 	groupID := uuid.New()
 	optID := uuid.New()
 	return catalogrepo.MenuItem{
-		ID:          uuid.New(),
-		PriceMinor:  49000,
+		ID:         uuid.New(),
+		PriceMinor: 49000,
 		OptionGroups: []catalogrepo.OptionGroup{{
 			ID: groupID, MinChoices: 1, MaxChoices: 1,
 			Options: []catalogrepo.Option{{

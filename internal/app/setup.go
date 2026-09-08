@@ -73,6 +73,7 @@ import (
 	customerorderlist "github.com/zlatovlaska707/avito-kitchen/internal/handler/customer/order_list"
 	customervenueget "github.com/zlatovlaska707/avito-kitchen/internal/handler/customer/venue_get"
 	customervenueslist "github.com/zlatovlaska707/avito-kitchen/internal/handler/customer/venues_list"
+	"github.com/zlatovlaska707/avito-kitchen/internal/handler/middleware"
 	partneritemavail "github.com/zlatovlaska707/avito-kitchen/internal/handler/partner/item_availability_set"
 	partnermenusync "github.com/zlatovlaska707/avito-kitchen/internal/handler/partner/menu_sync"
 	partnerorderaccept "github.com/zlatovlaska707/avito-kitchen/internal/handler/partner/order_accept"
@@ -84,7 +85,6 @@ import (
 	partnervenuestatus "github.com/zlatovlaska707/avito-kitchen/internal/handler/partner/venue_status_set"
 	partnerwebhookcreate "github.com/zlatovlaska707/avito-kitchen/internal/handler/partner/webhook_create"
 	partnerwebhookdelete "github.com/zlatovlaska707/avito-kitchen/internal/handler/partner/webhook_delete"
-	"github.com/zlatovlaska707/avito-kitchen/internal/handler/middleware"
 )
 
 type Dependencies struct {

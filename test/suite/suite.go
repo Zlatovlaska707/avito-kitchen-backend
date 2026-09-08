@@ -34,11 +34,11 @@ import (
 )
 
 var (
-	once         sync.Once
-	pool         *pgxpool.Pool
-	container    testcontainers.Container
-	postgresDSN  string
-	initErr      error
+	once        sync.Once
+	pool        *pgxpool.Pool
+	container   testcontainers.Container
+	postgresDSN string
+	initErr     error
 )
 
 const (

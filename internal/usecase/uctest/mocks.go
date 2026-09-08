@@ -17,18 +17,18 @@ type FixedNower struct{ T time.Time }
 func (n FixedNower) Now() time.Time { return n.T }
 
 type OrderRepo struct {
-	Order           *orderrepo.Order
-	GetByIDErr      error
+	Order            *orderrepo.Order
+	GetByIDErr       error
 	GetByCustomerErr error
-	ListOrders      []orderrepo.Order
-	ListErr         error
-	Items           []orderrepo.Item
-	ItemsErr        error
-	History         []orderrepo.StatusEvent
-	HistoryErr      error
-	TransitionOut   *orderrepo.Order
-	TransitionErr   error
-	PlacedBefore    []uuid.UUID
+	ListOrders       []orderrepo.Order
+	ListErr          error
+	Items            []orderrepo.Item
+	ItemsErr         error
+	History          []orderrepo.StatusEvent
+	HistoryErr       error
+	TransitionOut    *orderrepo.Order
+	TransitionErr    error
+	PlacedBefore     []uuid.UUID
 }
 
 func (m *OrderRepo) Create(context.Context, orderrepo.CreateIn) (*orderrepo.Order, error) {
@@ -92,18 +92,18 @@ func (m *OrderRepo) FindPlacedBefore(context.Context, time.Time, int) ([]uuid.UU
 }
 
 type VenueRepo struct {
-	Venue         *venuerepo.Venue
-	Venues        []venuerepo.Venue
-	GetByIDErr    error
-	GetBySlugErr  error
-	ListErr       error
-	Hours         []venuerepo.WorkingHour
-	SlugTaken     bool
-	Created       *venuerepo.Venue
-	Updated       *venuerepo.Venue
-	CreateErr     error
-	UpdateErr     error
-	StatusErr     error
+	Venue        *venuerepo.Venue
+	Venues       []venuerepo.Venue
+	GetByIDErr   error
+	GetBySlugErr error
+	ListErr      error
+	Hours        []venuerepo.WorkingHour
+	SlugTaken    bool
+	Created      *venuerepo.Venue
+	Updated      *venuerepo.Venue
+	CreateErr    error
+	UpdateErr    error
+	StatusErr    error
 }
 
 func (m *VenueRepo) Create(context.Context, venuerepo.CreateIn) (*venuerepo.Venue, error) {
@@ -164,9 +164,9 @@ func (m *VenueRepo) IsSlugTaken(context.Context, string, *uuid.UUID) (bool, erro
 }
 
 type DeliveryRepo struct {
-	Delivery      *deliveryrepo.Delivery
-	UpdateErr     error
-	UpdateOut     *deliveryrepo.Delivery
+	Delivery  *deliveryrepo.Delivery
+	UpdateErr error
+	UpdateOut *deliveryrepo.Delivery
 }
 
 func (m *DeliveryRepo) Create(context.Context, deliveryrepo.CreateIn) (*deliveryrepo.Delivery, error) {

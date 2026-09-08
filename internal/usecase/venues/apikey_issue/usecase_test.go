@@ -10,8 +10,8 @@ import (
 	apikeyrepo "github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/apikey"
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
-	venueapikeyissue "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/apikey_issue"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
+	venueapikeyissue "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/apikey_issue"
 )
 
 func TestRun_VenueNotFound(t *testing.T) {

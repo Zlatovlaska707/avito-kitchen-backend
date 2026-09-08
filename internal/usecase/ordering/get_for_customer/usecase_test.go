@@ -10,9 +10,9 @@ import (
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/domain/orderstatus"
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
+	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
 	deliveryrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/delivery"
 	orderrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/order"
-	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/ordering/get_for_customer"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
 )
@@ -71,7 +71,7 @@ func TestRun_GetItemsError(t *testing.T) {
 	orderID := uuid.New()
 	customerID := uuid.New()
 	orders := &uctest.OrderRepo{
-		Order: &orderrepo.Order{ID: orderID, CustomerID: customerID, Status: orderstatus.StatusPlaced},
+		Order:    &orderrepo.Order{ID: orderID, CustomerID: customerID, Status: orderstatus.StatusPlaced},
 		ItemsErr: assert.AnError,
 	}
 	uc := get_for_customer.New(orders, &uctest.DeliveryRepo{})

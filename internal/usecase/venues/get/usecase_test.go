@@ -11,9 +11,9 @@ import (
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
-	venueget "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/get"
 	venuerepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/venue"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
+	venueget "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/get"
 )
 
 func weekdayISO(t time.Time) int {

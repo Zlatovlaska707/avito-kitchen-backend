@@ -189,7 +189,7 @@ func setSimulatorMode(t *testing.T, simBase, mode string) {
 func setStoplist(t *testing.T, simBase, externalID string, available bool) {
 	t.Helper()
 	resp := simulatorRequest(t, http.MethodPost, simBase+"/control/stoplist", map[string]any{
-		"external_id":   externalID,
+		"external_id":  externalID,
 		"is_available": available,
 	})
 	defer func() { _ = resp.Body.Close() }()

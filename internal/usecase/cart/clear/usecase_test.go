@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
-	cartrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/cart"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/cart/clear"
+	cartrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/cart"
 )
 
 type cartMock struct {

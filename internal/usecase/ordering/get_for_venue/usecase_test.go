@@ -10,9 +10,9 @@ import (
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/domain/orderstatus"
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
+	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
 	deliveryrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/delivery"
 	orderrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/order"
-	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/ordering/get_for_venue"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
 )

@@ -11,8 +11,8 @@ import (
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/repository/pgerr"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
-	catalogrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/catalog"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/catalog/item_availability_set"
+	catalogrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/catalog"
 )
 
 type catalogMock struct {

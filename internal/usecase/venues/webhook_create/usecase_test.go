@@ -11,9 +11,9 @@ import (
 
 	"github.com/zlatovlaska707/avito-kitchen/internal/infrastructure/webhook"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase"
-	venuewebhookcreate "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/webhook_create"
 	webhookrepo "github.com/zlatovlaska707/avito-kitchen/internal/usecase/contract/repository/webhook"
 	"github.com/zlatovlaska707/avito-kitchen/internal/usecase/uctest"
+	venuewebhookcreate "github.com/zlatovlaska707/avito-kitchen/internal/usecase/venues/webhook_create"
 )
 
 func ssrfGuard() *webhook.SSRFGuard {

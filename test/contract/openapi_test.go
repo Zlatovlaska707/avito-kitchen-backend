@@ -25,12 +25,12 @@ import (
 )
 
 const (
-	adminToken     = "local-admin-token-change-me"
-	partnerAPIKey  = "ak_demopizz_xK9mN2pQ7vR4wL8hT3jF6sD1aB0cE5gY9uI2oP4"
-	customerID     = "11111111-1111-1111-1111-111111111111"
-	venueSlug      = "pizza-mario"
-	menuItemID     = "33333333-3333-4333-8333-333333333301"
-	sizeMedium     = "66666666-6666-4666-8666-666666666302"
+	adminToken    = "local-admin-token-change-me"
+	partnerAPIKey = "ak_demopizz_xK9mN2pQ7vR4wL8hT3jF6sD1aB0cE5gY9uI2oP4"
+	customerID    = "11111111-1111-1111-1111-111111111111"
+	venueSlug     = "pizza-mario"
+	menuItemID    = "33333333-3333-4333-8333-333333333301"
+	sizeMedium    = "66666666-6666-4666-8666-666666666302"
 )
 
 var domainErrorCodes = []string{
