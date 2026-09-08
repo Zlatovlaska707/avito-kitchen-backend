@@ -71,12 +71,12 @@ jobs:
             stoplight/spectral lint --ruleset /api/.spectral.yaml /api/openapi.yaml
 
       - name: Hadolint (api)
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: Dockerfile
 
       - name: Hadolint (venue-simulator)
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: venue-simulator/Dockerfile
 
