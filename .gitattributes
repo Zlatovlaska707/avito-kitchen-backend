@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+*.gen.go linguist-generated=true
+**/mocks/** linguist-generated=true

@@ -1,0 +1,45 @@
+@startuml venue-cjm
+!theme plain
+title Venue Journey Map — Avito Kitchen
+
+|#LightBlue|Онбординг|
+start
+:Заявка на подключение;
+:Оператор создаёт заведение\nPOST /admin/v1/venues;
+:Выпуск API-ключа\nPOST /admin/v1/venues/{id}/api-keys;
+note right: secret показывается один раз
+
+|#LightGreen|Каталог|
+:Синхронизация меню\nPUT /partner/v1/menu;
+if (Ошибка валидации?) then (да)
+  #Pink:validation_failed\n422 validation_failed;
+  stop
+endif
+:PATCH /partner/v1/venue/status\naccepts_orders = true;
+
+|#LightYellow|Приём заказов|
+:Webhook order.placed\n(HMAC signed);
+if (Webhook не дошёл?) then (да)
+  #Orange:Polling fallback\nGET /partner/v1/orders;
+endif
+if (Accept / Reject?) then (accept)
+  :POST /orders/{id}/accept;
+else (reject)
+  #Pink:reject, status rejected;
+  stop
+endif
+if (Нехватка продуктов?) then (да)
+  :PATCH availability\nстоп-лист;
+endif
+:POST /orders/{id}/ready;
+:POST /orders/{id}/handover;
+
+|#LightGray|Перегрузка|
+if (Слишком много заказов?) then (да)
+  :PATCH venue/status\naccepts_orders = false\n(pause_reason);
+else (нет)
+  :Заказ completed;
+endif
+stop
+
+@enduml

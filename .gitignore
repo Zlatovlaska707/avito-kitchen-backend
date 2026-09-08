@@ -1,0 +1,35 @@
+# Binaries and build artifacts
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+*.coverprofile
+
+# Environment and secrets
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go workspace
+/vendor/
+/scripts/*.py
+/build/
+/TECHNICAL_PLAN.md
+/IMPLEMENTATION_STRATEGY.md
+/PROJECT_STATUS.md
+/DEVELOPMENT_STANDARD.md

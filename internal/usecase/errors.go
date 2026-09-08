@@ -1,0 +1,33 @@
+package usecase
+
+import "errors"
+
+var (
+	ErrUnauthorized         = errors.New("unauthorized")
+	ErrForbidden            = errors.New("forbidden")
+	ErrValidation           = errors.New("validation failed")
+	ErrInvalidCustomerID    = errors.New("invalid customer id")
+	ErrVenueNotFound        = errors.New("venue not found")
+	ErrVenueSlugTaken       = errors.New("venue slug taken")
+	ErrVenueClosed          = errors.New("venue closed")
+	ErrMenuItemNotFound     = errors.New("menu item not found")
+	ErrMenuItemUnavailable  = errors.New("menu item unavailable")
+	ErrInvalidOptions       = errors.New("invalid options")
+	ErrDuplicateExternalID  = errors.New("duplicate external id")
+	ErrMenuSyncInProgress   = errors.New("menu sync in progress")
+	ErrCartNotFound         = errors.New("cart not found")
+	ErrCartEmpty            = errors.New("cart empty")
+	ErrCartVenueMismatch    = errors.New("cart venue mismatch")
+	ErrCartItemLimit        = errors.New("cart item limit exceeded")
+	ErrQuantityLimit        = errors.New("quantity limit exceeded")
+	ErrBelowMinOrder        = errors.New("below min order")
+	ErrOutsideDeliveryZone  = errors.New("outside delivery zone")
+	ErrPriceChanged         = errors.New("price changed")
+	ErrOrderNotFound        = errors.New("order not found")
+	ErrInvalidTransition    = errors.New("invalid transition")
+	ErrNotCancellable       = errors.New("not cancellable")
+	ErrIdempotencyKeyReuse  = errors.New("idempotency key reuse")
+	ErrRequestInProgress    = errors.New("request in progress")
+	ErrWebhookURLForbidden  = errors.New("webhook url forbidden")
+	ErrWebhookAlreadyExists = errors.New("webhook already exists")
+)

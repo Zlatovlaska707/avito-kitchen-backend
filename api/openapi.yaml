@@ -1,0 +1,2573 @@
+openapi: 3.1.0
+info:
+  title: Avito Kitchen API
+  version: 1.0.0
+  description: |
+    Backend platform for the Avito Kitchen food delivery marketplace.
+    Three API surfaces: Customer (`/api/v1`), Partner (`/partner/v1`), Admin (`/admin/v1`).
+    Customer endpoints identify the buyer via `X-Customer-Id` header (not authentication).
+    Money values are integer minor units (kopecks). Timestamps are RFC 3339 UTC.
+  contact:
+    name: Avito Kitchen Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: customer-catalog
+    description: Venue discovery and menu browsing
+  - name: customer-cart
+    description: Shopping cart management
+  - name: customer-orders
+    description: Order placement and tracking
+  - name: partner-menu
+    description: Menu synchronization and availability
+  - name: partner-orders
+    description: Order queue and lifecycle commands
+  - name: partner-webhooks
+    description: Outbound webhook registration
+  - name: admin
+    description: Platform administration
+  - name: system
+    description: Health and readiness probes
+
+paths:
+  /api/v1/venues:
+    get:
+      operationId: listVenues
+      summary: List active venues in a city
+      tags: [customer-catalog]
+      parameters:
+        - $ref: '#/components/parameters/CityIdQuery'
+        - $ref: '#/components/parameters/LatQuery'
+        - $ref: '#/components/parameters/LonQuery'
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/OnlyOpenQuery'
+        - $ref: '#/components/parameters/SortQuery'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Venue list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueListResponse'
+              examples:
+                default:
+                  value:
+                    items:
+                      - id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                        slug: "pizza-roma"
+                        name: "Pizza Roma"
+                        rating: 4.5
+                        delivery_fee_minor: 19900
+                        min_order_minor: 50000
+                        eta_minutes: 35
+                        is_open_now: true
+                        distance_m: 1200
+                        currency: "RUB"
+                    page:
+                      has_next: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/venues/{venueId}:
+    get:
+      operationId: getVenue
+      summary: Get venue details with working hours
+      tags: [customer-catalog]
+      parameters:
+        - $ref: '#/components/parameters/VenueIdPath'
+      responses:
+        '200':
+          description: Venue details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/venues/{venueId}/menu:
+    get:
+      operationId: getVenueMenu
+      summary: Get venue menu tree
+      tags: [customer-catalog]
+      parameters:
+        - $ref: '#/components/parameters/VenueIdPath'
+        - $ref: '#/components/parameters/IncludeUnavailableQuery'
+        - $ref: '#/components/parameters/IfNoneMatchHeader'
+      responses:
+        '200':
+          description: Menu with ETag
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Menu'
+        '304':
+          description: Not modified
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/cart:
+    get:
+      operationId: getCart
+      summary: Get active cart with recalculated totals
+      tags: [customer-cart]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+      responses:
+        '200':
+          description: Active cart or null when empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      operationId: clearCart
+      summary: Abandon active cart
+      tags: [customer-cart]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+      responses:
+        '204':
+          description: Cart abandoned
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/cart/items:
+    post:
+      operationId: addCartItem
+      summary: Add item to cart
+      tags: [customer-cart]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '201':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/cart/items/{itemId}:
+    patch:
+      operationId: updateCartItem
+      summary: Update cart line quantity
+      tags: [customer-cart]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+        - $ref: '#/components/parameters/CartItemIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/orders:
+    get:
+      operationId: listCustomerOrders
+      summary: List customer orders
+      tags: [customer-orders]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/OrderStatusQuery'
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      operationId: createOrder
+      summary: Create order from active cart
+      tags: [customer-orders]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/orders/{orderId}:
+    get:
+      operationId: getCustomerOrder
+      summary: Get order details with timeline
+      tags: [customer-orders]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+        - $ref: '#/components/parameters/OrderIdPath'
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/orders/{orderId}/cancel:
+    post:
+      operationId: cancelCustomerOrder
+      summary: Cancel order by customer
+      tags: [customer-orders]
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdHeader'
+        - $ref: '#/components/parameters/OrderIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+      responses:
+        '200':
+          description: Cancelled order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/menu:
+    put:
+      operationId: syncMenu
+      summary: Full idempotent menu synchronization
+      tags: [partner-menu]
+      security:
+        - PartnerApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuSyncRequest'
+      responses:
+        '200':
+          description: Sync summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuSyncResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/menu/items/{externalId}/availability:
+    patch:
+      operationId: updateItemAvailability
+      summary: Update item stop-list availability
+      tags: [partner-menu]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/ExternalIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemAvailabilityRequest'
+      responses:
+        '200':
+          description: Availability updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/venue/status:
+    patch:
+      operationId: updateVenueStatus
+      summary: Toggle venue order acceptance
+      tags: [partner-menu]
+      security:
+        - PartnerApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueStatusRequest'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accepts_orders]
+                properties:
+                  accepts_orders:
+                    type: boolean
+              examples:
+                paused:
+                  value:
+                    accepts_orders: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/orders:
+    get:
+      operationId: listPartnerOrders
+      summary: List venue order queue
+      tags: [partner-orders]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderStatusMultiQuery'
+        - $ref: '#/components/parameters/SinceQuery'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Order queue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/orders/{orderId}:
+    get:
+      operationId: getPartnerOrder
+      summary: Get order details for venue
+      tags: [partner-orders]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/orders/{orderId}/accept:
+    post:
+      operationId: acceptOrder
+      summary: Accept placed order
+      tags: [partner-orders]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptOrderRequest'
+      responses:
+        '200':
+          description: Order accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/orders/{orderId}/reject:
+    post:
+      operationId: rejectOrder
+      summary: Reject placed order
+      tags: [partner-orders]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectOrderRequest'
+      responses:
+        '200':
+          description: Order rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/orders/{orderId}/ready:
+    post:
+      operationId: markOrderReady
+      summary: Mark order ready for pickup or delivery
+      tags: [partner-orders]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+      responses:
+        '200':
+          description: Order ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/orders/{orderId}/handover:
+    post:
+      operationId: handoverOrder
+      summary: Hand order to courier or complete pickup
+      tags: [partner-orders]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+      responses:
+        '200':
+          description: Order handed over
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/webhooks:
+    post:
+      operationId: registerWebhook
+      summary: Register outbound webhook endpoint
+      tags: [partner-webhooks]
+      security:
+        - PartnerApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterWebhookRequest'
+      responses:
+        '201':
+          description: Webhook registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookRegistration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /partner/v1/webhooks/{webhookId}:
+    delete:
+      operationId: deleteWebhook
+      summary: Delete webhook registration
+      tags: [partner-webhooks]
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - $ref: '#/components/parameters/WebhookIdPath'
+      responses:
+        '204':
+          description: Webhook deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/v1/venues:
+    post:
+      operationId: createVenue
+      summary: Create venue in draft status
+      tags: [admin]
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVenueRequest'
+      responses:
+        '201':
+          description: Venue created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/v1/venues/{venueId}:
+    patch:
+      operationId: updateVenue
+      summary: Update venue profile and moderation status
+      tags: [admin]
+      security:
+        - AdminToken: []
+      parameters:
+        - $ref: '#/components/parameters/VenueIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVenueRequest'
+      responses:
+        '200':
+          description: Venue updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/v1/venues/{venueId}/api-keys:
+    post:
+      operationId: createApiKey
+      summary: Issue venue API key
+      tags: [admin]
+      security:
+        - AdminToken: []
+      parameters:
+        - $ref: '#/components/parameters/VenueIdPath'
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/v1/venues/{venueId}/api-keys/{keyId}:
+    delete:
+      operationId: revokeApiKey
+      summary: Revoke venue API key
+      tags: [admin]
+      security:
+        - AdminToken: []
+      parameters:
+        - $ref: '#/components/parameters/VenueIdPath'
+        - $ref: '#/components/parameters/ApiKeyIdPath'
+      responses:
+        '204':
+          description: API key revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/v1/orders:
+    get:
+      operationId: listAdminOrders
+      summary: Cross-tenant order list for incidents
+      tags: [admin]
+      security:
+        - AdminToken: []
+      parameters:
+        - $ref: '#/components/parameters/VenueIdFilterQuery'
+        - $ref: '#/components/parameters/OrderStatusQuery'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /health/live:
+    get:
+      operationId: healthLive
+      summary: Liveness probe
+      tags: [system]
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                ok:
+                  value:
+                    status: ok
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /health/ready:
+    get:
+      operationId: healthReady
+      summary: Readiness probe
+      tags: [system]
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+              examples:
+                ok:
+                  value:
+                    status: ok
+                    checks:
+                      postgres: ok
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    PartnerApiKey:
+      type: http
+      scheme: bearer
+      description: Venue API key issued via Admin API. Scoped to a single venue.
+    AdminToken:
+      type: http
+      scheme: bearer
+      description: Static platform admin token from environment.
+
+  parameters:
+    CustomerIdHeader:
+      name: X-Customer-Id
+      in: header
+      required: true
+      description: Customer UUID. Identification only, not authentication.
+      schema:
+        type: string
+        format: uuid
+      example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for idempotent order creation (24h TTL).
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+      example: "checkout-2026-09-07-001"
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Page size (default 20, max 100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    CursorParam:
+      name: cursor
+      in: query
+      description: Opaque pagination cursor from previous response.
+      schema:
+        type: string
+
+    VenueIdPath:
+      name: venueId
+      in: path
+      required: true
+      description: Venue UUID or slug.
+      schema:
+        type: string
+      example: "pizza-roma"
+
+    OrderIdPath:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    CartItemIdPath:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    ExternalIdPath:
+      name: externalId
+      in: path
+      required: true
+      description: Menu item external ID in venue system.
+      schema:
+        type: string
+      example: "PIZZA-MARG-001"
+
+    WebhookIdPath:
+      name: webhookId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ApiKeyIdPath:
+      name: keyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    CityIdQuery:
+      name: city_id
+      in: query
+      required: true
+      schema:
+        type: integer
+      example: 1
+
+    LatQuery:
+      name: lat
+      in: query
+      schema:
+        type: number
+        format: double
+      example: 55.7558
+
+    LonQuery:
+      name: lon
+      in: query
+      schema:
+        type: number
+        format: double
+      example: 37.6173
+
+    SearchQuery:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 200
+
+    OnlyOpenQuery:
+      name: only_open
+      in: query
+      schema:
+        type: boolean
+        default: false
+
+    SortQuery:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [rating, distance]
+        default: rating
+
+    IncludeUnavailableQuery:
+      name: include_unavailable
+      in: query
+      schema:
+        type: boolean
+        default: true
+
+    OrderStatusQuery:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [placed, accepted, ready, in_delivery, completed, cancelled, rejected]
+
+    OrderStatusMultiQuery:
+      name: status
+      in: query
+      description: Filter by one or more statuses.
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [placed, accepted, ready, in_delivery, completed, cancelled, rejected]
+      style: form
+      explode: true
+
+    SinceQuery:
+      name: since
+      in: query
+      description: Return orders created after this timestamp (RFC 3339).
+      schema:
+        type: string
+        format: date-time
+
+    VenueIdFilterQuery:
+      name: venue_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+
+    IfNoneMatchHeader:
+      name: If-None-Match
+      in: header
+      schema:
+        type: string
+
+  schemas:
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: object
+          additionalProperties: true
+          description: Machine-readable facts (never internal stack traces).
+        request_id:
+          type: string
+          format: uuid
+
+    PageInfo:
+      type: object
+      properties:
+        next_cursor:
+          type: string
+          nullable: true
+        has_next:
+          type: boolean
+      required: [has_next]
+      examples:
+        - next_cursor: "eyJ0cyI6IjIwMjYtMDktMDdUMTE6MDA6MDBaIiwiaWQiOiI3YzllNjY3OS03NDI1LTQwZGUtOTQ0Yi1lMDdmYzFmOTBhZTcifQ"
+          has_next: true
+
+    WorkingHours:
+      type: object
+      required: [weekday, opens_at, closes_at]
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: ISO weekday (1=Monday).
+        opens_at:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$'
+          example: "10:00"
+        closes_at:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$'
+          example: "22:00"
+        crosses_midnight:
+          type: boolean
+          default: false
+      examples:
+        - weekday: 1
+          opens_at: "10:00"
+          closes_at: "22:00"
+          crosses_midnight: false
+
+    Venue:
+      type: object
+      required: [id, slug, name, delivery_fee_minor, min_order_minor, is_open_now, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        rating:
+          type: number
+          format: float
+          nullable: true
+        delivery_fee_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        min_order_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        eta_minutes:
+          type: integer
+          nullable: true
+        is_open_now:
+          type: boolean
+        distance_m:
+          type: integer
+          nullable: true
+          description: Present when lat/lon query params provided.
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          default: RUB
+      examples:
+        - id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          slug: "pizza-roma"
+          name: "Pizza Roma"
+          rating: 4.5
+          delivery_fee_minor: 19900
+          min_order_minor: 50000
+          eta_minutes: 35
+          is_open_now: true
+          distance_m: 1200
+          currency: "RUB"
+
+    VenueDetails:
+      allOf:
+        - $ref: '#/components/schemas/Venue'
+        - type: object
+          required: [status, accepts_orders, city_id, address_text, lat, lon, timezone, working_hours]
+          properties:
+            description:
+              type: string
+              nullable: true
+            status:
+              type: string
+              enum: [draft, active, suspended]
+            accepts_orders:
+              type: boolean
+            city_id:
+              type: integer
+            address_text:
+              type: string
+            lat:
+              type: number
+              format: double
+            lon:
+              type: number
+              format: double
+            timezone:
+              type: string
+              example: "Europe/Moscow"
+            working_hours:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkingHours'
+            closed_reason:
+              type: string
+              enum: [schedule, paused_by_venue]
+              nullable: true
+              description: Why venue is closed when is_open_now=false.
+      examples:
+        - id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          slug: "pizza-roma"
+          name: "Pizza Roma"
+          rating: 4.5
+          delivery_fee_minor: 19900
+          min_order_minor: 50000
+          eta_minutes: 35
+          is_open_now: true
+          currency: "RUB"
+          description: "Neapolitan pizza and pasta"
+          status: "active"
+          accepts_orders: true
+          city_id: 1
+          address_text: "Tverskaya 1, Moscow"
+          lat: 55.7558
+          lon: 37.6173
+          timezone: "Europe/Moscow"
+          working_hours:
+            - weekday: 1
+              opens_at: "10:00"
+              closes_at: "22:00"
+              crosses_midnight: false
+          closed_reason: null
+
+    Option:
+      type: object
+      required: [id, external_id, name, price_delta_minor, is_available]
+      properties:
+        id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+        name:
+          type: string
+        price_delta_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        is_available:
+          type: boolean
+      examples:
+        - id: "11111111-1111-1111-1111-111111111111"
+          external_id: "SIZE-L"
+          name: "Large"
+          price_delta_minor: 10000
+          is_available: true
+
+    OptionGroup:
+      type: object
+      required: [id, external_id, name, min_choices, max_choices, options]
+      properties:
+        id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+        name:
+          type: string
+        min_choices:
+          type: integer
+          minimum: 0
+        max_choices:
+          type: integer
+          minimum: 0
+        sort_order:
+          type: integer
+          default: 0
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/Option'
+      examples:
+        - id: "22222222-2222-2222-2222-222222222222"
+          external_id: "SIZE"
+          name: "Size"
+          min_choices: 1
+          max_choices: 1
+          sort_order: 0
+          options:
+            - id: "11111111-1111-1111-1111-111111111111"
+              external_id: "SIZE-L"
+              name: "Large"
+              price_delta_minor: 10000
+              is_available: true
+
+    MenuItem:
+      type: object
+      required: [id, external_id, name, price_minor, is_active, is_available, option_groups]
+      properties:
+        id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        price_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        weight_grams:
+          type: integer
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        is_active:
+          type: boolean
+        is_available:
+          type: boolean
+        unavailable_until:
+          type: string
+          format: date-time
+          nullable: true
+        option_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptionGroup'
+      examples:
+        - id: "33333333-3333-3333-3333-333333333333"
+          external_id: "PIZZA-MARG-001"
+          name: "Margherita"
+          description: "Tomato, mozzarella, basil"
+          price_minor: 45000
+          weight_grams: 400
+          is_active: true
+          is_available: true
+          option_groups: []
+
+    MenuCategory:
+      type: object
+      required: [id, external_id, name, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+        name:
+          type: string
+        sort_order:
+          type: integer
+          default: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItem'
+      examples:
+        - id: "44444444-4444-4444-4444-444444444444"
+          external_id: "CAT-PIZZA"
+          name: "Pizza"
+          sort_order: 0
+          items:
+            - id: "33333333-3333-3333-3333-333333333333"
+              external_id: "PIZZA-MARG-001"
+              name: "Margherita"
+              price_minor: 45000
+              is_active: true
+              is_available: true
+              option_groups: []
+
+    Menu:
+      type: object
+      required: [venue_id, revision, categories]
+      properties:
+        venue_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuCategory'
+      examples:
+        - venue_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          revision: 12
+          categories:
+            - id: "44444444-4444-4444-4444-444444444444"
+              external_id: "CAT-PIZZA"
+              name: "Pizza"
+              sort_order: 0
+              items:
+                - id: "33333333-3333-3333-3333-333333333333"
+                  external_id: "PIZZA-MARG-001"
+                  name: "Margherita"
+                  price_minor: 45000
+                  is_active: true
+                  is_available: true
+                  option_groups: []
+
+    CartSelectedOption:
+      type: object
+      required: [option_id, name, price_delta_minor]
+      properties:
+        option_id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+        name:
+          type: string
+        price_delta_minor:
+          type: integer
+          format: int64
+
+    CartLine:
+      type: object
+      required: [id, menu_item_id, name, quantity, unit_price_minor, line_total_minor, selected_options]
+      properties:
+        id:
+          type: string
+          format: uuid
+        menu_item_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        unit_price_minor:
+          type: integer
+          format: int64
+        line_total_minor:
+          type: integer
+          format: int64
+        selected_options:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartSelectedOption'
+      examples:
+        - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          menu_item_id: "33333333-3333-3333-3333-333333333333"
+          name: "Margherita"
+          quantity: 2
+          unit_price_minor: 55000
+          line_total_minor: 110000
+          selected_options:
+            - option_id: "11111111-1111-1111-1111-111111111111"
+              external_id: "SIZE-L"
+              name: "Large"
+              price_delta_minor: 10000
+
+    CartIssue:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [item_removed, item_unavailable, price_changed, option_unavailable, venue_closed, below_min_order]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      examples:
+        - code: "item_unavailable"
+          message: "Margherita is temporarily unavailable"
+          details:
+            cart_item_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            unavailable_until: "2026-09-07T18:00:00Z"
+
+    Cart:
+      type: object
+      nullable: true
+      required: [id, venue_id, lines, items_total_minor, delivery_fee_minor, total_minor, currency, issues]
+      properties:
+        id:
+          type: string
+          format: uuid
+        venue_id:
+          type: string
+          format: uuid
+        venue_name:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLine'
+        items_total_minor:
+          type: integer
+          format: int64
+        delivery_fee_minor:
+          type: integer
+          format: int64
+        total_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartIssue'
+        expires_at:
+          type: string
+          format: date-time
+      examples:
+        - id: "55555555-5555-5555-5555-555555555555"
+          venue_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          venue_name: "Pizza Roma"
+          lines:
+            - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              menu_item_id: "33333333-3333-3333-3333-333333333333"
+              name: "Margherita"
+              quantity: 2
+              unit_price_minor: 55000
+              line_total_minor: 110000
+              selected_options: []
+          items_total_minor: 110000
+          delivery_fee_minor: 19900
+          total_minor: 129900
+          currency: "RUB"
+          issues: []
+          expires_at: "2026-09-08T11:30:00Z"
+
+    OrderOptionSnapshot:
+      type: object
+      required: [external_id, name, price_delta_minor]
+      properties:
+        external_id:
+          type: string
+        name:
+          type: string
+        price_delta_minor:
+          type: integer
+          format: int64
+
+    OrderLine:
+      type: object
+      required: [item_external_id, name_snapshot, unit_price_minor, quantity, options_snapshot, line_total_minor]
+      properties:
+        menu_item_id:
+          type: string
+          format: uuid
+          nullable: true
+        item_external_id:
+          type: string
+        name_snapshot:
+          type: string
+        unit_price_minor:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        options_snapshot:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderOptionSnapshot'
+        line_total_minor:
+          type: integer
+          format: int64
+      examples:
+        - item_external_id: "PIZZA-MARG-001"
+          name_snapshot: "Margherita"
+          unit_price_minor: 55000
+          quantity: 2
+          options_snapshot:
+            - external_id: "SIZE-L"
+              name: "Large"
+              price_delta_minor: 10000
+          line_total_minor: 110000
+
+    OrderStatusEvent:
+      type: object
+      required: [to_status, actor_type, created_at]
+      properties:
+        from_status:
+          type: string
+          nullable: true
+        to_status:
+          type: string
+        actor_type:
+          type: string
+          enum: [customer, venue, courier, system, admin]
+        actor_id:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      examples:
+        - from_status: null
+          to_status: "placed"
+          actor_type: "customer"
+          created_at: "2026-09-07T11:30:00Z"
+
+    Delivery:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, assigned, picked_up, delivered, failed]
+        courier_name:
+          type: string
+          nullable: true
+        courier_phone:
+          type: string
+          nullable: true
+        eta_minutes:
+          type: integer
+          nullable: true
+        assigned_at:
+          type: string
+          format: date-time
+          nullable: true
+        picked_up_at:
+          type: string
+          format: date-time
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+      examples:
+        - status: "assigned"
+          courier_name: "Ivan P."
+          courier_phone: "+79001234567"
+          eta_minutes: 25
+          assigned_at: "2026-09-07T12:00:00Z"
+
+    DeliveryAddress:
+      type: object
+      required: [text, lat, lon]
+      properties:
+        text:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        entrance:
+          type: string
+        floor:
+          type: string
+        comment:
+          type: string
+
+    Order:
+      type: object
+      required: [id, public_number, customer_id, venue_id, status, fulfillment_type, contact_phone, items_total_minor, delivery_fee_minor, discount_minor, total_minor, currency, payment_method, payment_status, lines, status_history]
+      properties:
+        id:
+          type: string
+          format: uuid
+        public_number:
+          type: string
+          example: "AK-240907-0042"
+        customer_id:
+          type: string
+          format: uuid
+        venue_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [placed, accepted, ready, in_delivery, completed, cancelled, rejected]
+        fulfillment_type:
+          type: string
+          enum: [delivery, pickup]
+        delivery_address:
+          $ref: '#/components/schemas/DeliveryAddress'
+        contact_phone:
+          type: string
+        items_total_minor:
+          type: integer
+          format: int64
+        delivery_fee_minor:
+          type: integer
+          format: int64
+        discount_minor:
+          type: integer
+          format: int64
+        total_minor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        payment_method:
+          type: string
+          enum: [cash, card_online_mock]
+        payment_status:
+          type: string
+          enum: [not_required, pending, paid, failed]
+        comment:
+          type: string
+          nullable: true
+        eta_at:
+          type: string
+          format: date-time
+          nullable: true
+        placed_at:
+          type: string
+          format: date-time
+          nullable: true
+        external_order_id:
+          type: string
+          nullable: true
+        cancel_reason:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderLine'
+        status_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderStatusEvent'
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+      examples:
+        - id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+          public_number: "AK-240907-0042"
+          customer_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          venue_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          status: "placed"
+          fulfillment_type: "delivery"
+          delivery_address:
+            text: "Tverskaya 10, apt 5"
+            lat: 55.76
+            lon: 37.62
+          contact_phone: "+79001234567"
+          items_total_minor: 110000
+          delivery_fee_minor: 19900
+          discount_minor: 0
+          total_minor: 129900
+          currency: "RUB"
+          payment_method: "cash"
+          payment_status: "not_required"
+          placed_at: "2026-09-07T11:30:00Z"
+          lines:
+            - item_external_id: "PIZZA-MARG-001"
+              name_snapshot: "Margherita"
+              unit_price_minor: 55000
+              quantity: 2
+              options_snapshot: []
+              line_total_minor: 110000
+          status_history:
+            - to_status: "placed"
+              actor_type: "customer"
+              created_at: "2026-09-07T11:30:00Z"
+
+    VenueListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Venue'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+
+    OrderListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+
+    AddCartItemRequest:
+      type: object
+      required: [venue_id, menu_item_id, quantity]
+      properties:
+        venue_id:
+          type: string
+          format: uuid
+        menu_item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        option_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          default: []
+      examples:
+        - venue_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          menu_item_id: "33333333-3333-3333-3333-333333333333"
+          quantity: 1
+          option_ids: ["11111111-1111-1111-1111-111111111111"]
+
+    UpdateCartItemRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 0
+          maximum: 99
+          description: Set to 0 to remove the line.
+      examples:
+        - quantity: 3
+
+    CreateOrderRequest:
+      type: object
+      required: [fulfillment_type, contact_phone, payment_method, expected_total_minor]
+      properties:
+        fulfillment_type:
+          type: string
+          enum: [delivery, pickup]
+        address:
+          $ref: '#/components/schemas/DeliveryAddress'
+        contact_phone:
+          type: string
+          pattern: '^\+7[0-9]{10}$'
+        payment_method:
+          type: string
+          enum: [cash, card_online_mock]
+        comment:
+          type: string
+          maxLength: 500
+        expected_total_minor:
+          type: integer
+          format: int64
+          description: Client-side total for price-change detection.
+      examples:
+        - fulfillment_type: "delivery"
+          address:
+            text: "Tverskaya 10, apt 5"
+            lat: 55.76
+            lon: 37.62
+          contact_phone: "+79001234567"
+          payment_method: "cash"
+          expected_total_minor: 129900
+
+    CancelOrderRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+      examples:
+        - reason: "Changed my mind"
+
+    MenuSyncOption:
+      type: object
+      required: [external_id, name, price_delta_minor]
+      properties:
+        external_id:
+          type: string
+        name:
+          type: string
+        price_delta_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        is_available:
+          type: boolean
+          default: true
+
+    MenuSyncOptionGroup:
+      type: object
+      required: [external_id, name, min_choices, max_choices, options]
+      properties:
+        external_id:
+          type: string
+        name:
+          type: string
+        min_choices:
+          type: integer
+          minimum: 0
+        max_choices:
+          type: integer
+          minimum: 0
+        sort_order:
+          type: integer
+          default: 0
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuSyncOption'
+
+    MenuSyncItem:
+      type: object
+      required: [external_id, name, price_minor]
+      properties:
+        external_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        weight_grams:
+          type: integer
+        image_url:
+          type: string
+          format: uri
+        is_available:
+          type: boolean
+          default: true
+        option_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuSyncOptionGroup'
+          default: []
+
+    MenuSyncCategory:
+      type: object
+      required: [external_id, name, items]
+      properties:
+        external_id:
+          type: string
+        name:
+          type: string
+        sort_order:
+          type: integer
+          default: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuSyncItem'
+
+    MenuSyncRequest:
+      type: object
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuSyncCategory'
+      examples:
+        - categories:
+            - external_id: "CAT-PIZZA"
+              name: "Pizza"
+              items:
+                - external_id: "PIZZA-MARG-001"
+                  name: "Margherita"
+                  price_minor: 45000
+                  option_groups: []
+
+    MenuSyncResponse:
+      type: object
+      required: [created, updated, deactivated, unchanged]
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        deactivated:
+          type: integer
+        unchanged:
+          type: integer
+      examples:
+        - created: 2
+          updated: 5
+          deactivated: 1
+          unchanged: 10
+
+    ItemAvailabilityRequest:
+      type: object
+      required: [is_available]
+      properties:
+        is_available:
+          type: boolean
+        unavailable_until:
+          type: string
+          format: date-time
+          nullable: true
+      examples:
+        - is_available: false
+          unavailable_until: "2026-09-07T18:00:00Z"
+
+    VenueStatusRequest:
+      type: object
+      required: [accepts_orders]
+      properties:
+        accepts_orders:
+          type: boolean
+        pause_reason:
+          type: string
+          maxLength: 200
+      examples:
+        - accepts_orders: false
+          pause_reason: "Kitchen overloaded"
+
+    AcceptOrderRequest:
+      type: object
+      properties:
+        external_order_id:
+          type: string
+        prep_minutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+      examples:
+        - external_order_id: "POS-12345"
+          prep_minutes: 30
+
+    RejectOrderRequest:
+      type: object
+      required: [reason, reason_code]
+      properties:
+        reason:
+          type: string
+        reason_code:
+          type: string
+      examples:
+        - reason: "Out of ingredients"
+          reason_code: "OUT_OF_STOCK"
+
+    RegisterWebhookRequest:
+      type: object
+      required: [url, event_types]
+      properties:
+        url:
+          type: string
+          format: uri
+        secret:
+          type: string
+          description: Optional HMAC secret. If omitted, the platform generates one and returns it once.
+        event_types:
+          type: array
+          items:
+            type: string
+            enum: [order.created, order.cancelled, order.accepted, order.ready, order.delivery_assigned, order.completed, order.rejected]
+          minItems: 1
+      examples:
+        - url: "https://venue.example.com/webhooks/orders"
+          event_types: ["order.created", "order.cancelled"]
+
+    WebhookRegistration:
+      type: object
+      required: [id, url, event_types, secret]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        event_types:
+          type: array
+          items:
+            type: string
+        secret:
+          type: string
+          description: HMAC secret returned once at registration.
+      examples:
+        - id: "88888888-8888-8888-8888-888888888888"
+          url: "https://venue.example.com/webhooks/orders"
+          event_types: ["order.created"]
+          secret: "whsec_abc123"
+
+    CreateVenueRequest:
+      type: object
+      required: [slug, name, city_id, address_text, lat, lon, timezone, working_hours]
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]{3,64}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        city_id:
+          type: integer
+        address_text:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        timezone:
+          type: string
+        avg_prep_minutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+          default: 25
+        delivery_fee_minor:
+          type: integer
+          format: int64
+          minimum: 0
+          default: 0
+        min_order_minor:
+          type: integer
+          format: int64
+          minimum: 0
+          default: 0
+        delivery_radius_m:
+          type: integer
+          minimum: 100
+          maximum: 50000
+          default: 5000
+        working_hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingHours'
+          minItems: 1
+      examples:
+        - slug: "pizza-roma"
+          name: "Pizza Roma"
+          city_id: 1
+          address_text: "Tverskaya 1"
+          lat: 55.7558
+          lon: 37.6173
+          timezone: "Europe/Moscow"
+          working_hours:
+            - weekday: 1
+              opens_at: "10:00"
+              closes_at: "22:00"
+
+    UpdateVenueRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, suspended]
+        delivery_fee_minor:
+          type: integer
+          format: int64
+        min_order_minor:
+          type: integer
+          format: int64
+        delivery_radius_m:
+          type: integer
+        working_hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingHours'
+      examples:
+        - status: "active"
+
+    ApiKeyCreated:
+      type: object
+      required: [id, key_prefix, api_key, scopes]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key_prefix:
+          type: string
+        api_key:
+          type: string
+          description: Plaintext key returned once.
+        scopes:
+          type: array
+          items:
+            type: string
+      examples:
+        - id: "99999999-9999-9999-9999-999999999999"
+          key_prefix: "ak_live_"
+          api_key: "ak_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          scopes: ["menu:write", "orders:write"]
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+      examples:
+        - status: "ok"
+
+    ReadyResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      examples:
+        - status: "ok"
+          checks:
+            postgres: "ok"
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            validation_failed:
+              value:
+                error:
+                  code: validation_failed
+                  message: Request validation failed
+                  details:
+                    field: city_id
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            invalid_customer_id:
+              value:
+                error:
+                  code: invalid_customer_id
+                  message: X-Customer-Id header is missing or not a valid UUID
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            invalid_options:
+              value:
+                error:
+                  code: invalid_options
+                  message: Option selection violates min/max choices
+                  details:
+                    group: "Size"
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            duplicate_external_id:
+              value:
+                error:
+                  code: duplicate_external_id
+                  message: Duplicate external_id in menu payload
+                  details:
+                    external_id: "PIZZA-MARG-001"
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            webhook_url_forbidden:
+              value:
+                error:
+                  code: webhook_url_forbidden
+                  message: Webhook URL is not allowed
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    Unauthorized:
+      description: Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            unauthorized:
+              value:
+                error:
+                  code: unauthorized
+                  message: Invalid or missing API token
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    Forbidden:
+      description: Access denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            forbidden:
+              value:
+                error:
+                  code: forbidden
+                  message: Access to this resource is forbidden
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            venue_not_found:
+              value:
+                error:
+                  code: venue_not_found
+                  message: Venue not found or not active
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            menu_item_not_found:
+              value:
+                error:
+                  code: menu_item_not_found
+                  message: Menu item not found
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            cart_not_found:
+              value:
+                error:
+                  code: cart_not_found
+                  message: Cart item not found
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            order_not_found:
+              value:
+                error:
+                  code: order_not_found
+                  message: Order not found
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    Conflict:
+      description: Request conflicts with current state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            venue_slug_taken:
+              value:
+                error:
+                  code: venue_slug_taken
+                  message: Venue slug is already taken
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            venue_closed:
+              value:
+                error:
+                  code: venue_closed
+                  message: Venue is closed and not accepting orders
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            item_unavailable:
+              value:
+                error:
+                  code: item_unavailable
+                  message: Some items are no longer available
+                  details:
+                    unavailable_item_ids: ["33333333-3333-3333-3333-333333333333"]
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            menu_sync_in_progress:
+              value:
+                error:
+                  code: menu_sync_in_progress
+                  message: Another menu sync is in progress
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            cart_empty:
+              value:
+                error:
+                  code: cart_empty
+                  message: Cannot place order from an empty cart
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            cart_venue_mismatch:
+              value:
+                error:
+                  code: cart_venue_mismatch
+                  message: Item belongs to a different venue
+                  details:
+                    current_venue_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            below_min_order:
+              value:
+                error:
+                  code: below_min_order
+                  message: Order total is below minimum
+                  details:
+                    min_order_minor: 50000
+                    items_total_minor: 30000
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            outside_delivery_zone:
+              value:
+                error:
+                  code: outside_delivery_zone
+                  message: Delivery address is outside venue delivery zone
+                  details:
+                    distance_m: 7500
+                    radius_m: 5000
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            price_changed:
+              value:
+                error:
+                  code: price_changed
+                  message: Order total has changed since checkout
+                  details:
+                    expected_total_minor: 129900
+                    actual_total_minor: 139900
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            invalid_transition:
+              value:
+                error:
+                  code: invalid_transition
+                  message: Invalid order status transition
+                  details:
+                    current_status: accepted
+                    requested_status: ready
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            not_cancellable:
+              value:
+                error:
+                  code: not_cancellable
+                  message: Order cannot be cancelled in current status
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            idempotency_key_reuse:
+              value:
+                error:
+                  code: idempotency_key_reuse
+                  message: Idempotency key reused with different request body
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            request_in_progress:
+              value:
+                error:
+                  code: request_in_progress
+                  message: Request with this idempotency key is still processing
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            webhook_already_exists:
+              value:
+                error:
+                  code: webhook_already_exists
+                  message: Webhook with this URL already registered
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    UnprocessableEntity:
+      description: Semantically invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            cart_item_limit_exceeded:
+              value:
+                error:
+                  code: cart_item_limit_exceeded
+                  message: Cart exceeds maximum number of lines
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+            quantity_limit_exceeded:
+              value:
+                error:
+                  code: quantity_limit_exceeded
+                  message: Quantity exceeds maximum of 99
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    PayloadTooLarge:
+      description: Request body too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            payload_too_large:
+              value:
+                error:
+                  code: payload_too_large
+                  message: Request body exceeds size limit
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            rate_limited:
+              value:
+                error:
+                  code: rate_limited
+                  message: Too many requests
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            internal_error:
+              value:
+                error:
+                  code: internal_error
+                  message: Internal server error
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"
+
+    ServiceUnavailable:
+      description: Service temporarily unavailable
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          examples:
+            service_unavailable:
+              value:
+                error:
+                  code: service_unavailable
+                  message: Service temporarily unavailable
+                  request_id: "0f8a2c1e-4b3a-4d5e-9f6a-1b2c3d4e5f6a"

@@ -1,0 +1,12 @@
+# Overlay for k6 load tests: relax rate limits so mixed scenario can reach target RPS.
+services:
+  api:
+    environment:
+      RATE_LIMIT_RPS_PUBLIC: 500
+      RATE_LIMIT_RPS_PUBLIC_WRITE: 150
+      RATE_LIMIT_RPS_PARTNER: 200
+
+  k6:
+    depends_on:
+      api:
+        condition: service_healthy

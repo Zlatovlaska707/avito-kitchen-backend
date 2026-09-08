@@ -1,0 +1,27 @@
+@startuml c4-l2
+!include <C4/C4_Container>
+title Avito Kitchen — C4 Level 2 (Containers)
+
+Person(customer, "Покупатель", "Выбирает заведение, оформляет заказ через web/mobile")
+Person(operator, "Оператор платформы", "Онбординг заведений, выпуск API-ключей")
+Person(venue, "Заведение", "Синхронизирует меню, принимает заказы через POS/ERP")
+
+System_Boundary(platform, "Avito Kitchen Platform") {
+    Container(api, "API Service", "Go", "Customer / Partner / Admin HTTP API, middleware, use cases")
+    Container(workers, "Background Workers", "Go", "Outbox publisher, accept timeout, delivery simulator, GC")
+    ContainerDb(postgres, "PostgreSQL 16", "SQL", "Venues, catalog, carts, orders, outbox, idempotency")
+}
+
+Container(simulator, "Venue Simulator", "Go (отдельный модуль)", "Bootstrap меню, приём webhooks, auto_accept/reject, polling fallback")
+
+Rel(customer, api, "REST JSON", "HTTPS /api/v1")
+Rel(operator, api, "REST JSON", "HTTPS /admin/v1")
+Rel(venue, api, "REST JSON", "HTTPS /partner/v1")
+Rel(venue, simulator, "Control API", "HTTP :8081/control/*")
+
+Rel(api, postgres, "pgx", "TCP 5432")
+Rel(workers, postgres, "pgx (отдельный пул)", "TCP 5432")
+Rel(workers, simulator, "Webhook HMAC", "HTTP POST")
+Rel(simulator, api, "Menu sync, order lifecycle", "HTTPS /partner/v1")
+
+@enduml

@@ -1,0 +1,37 @@
+{
+  "categories": [
+    {
+      "external_id": "cat-pizzas",
+      "name": "Pizzas",
+      "sort_order": 1,
+      "items": [
+        {
+          "external_id": "item-margherita",
+          "name": "Margherita",
+          "description": "Tomato, mozzarella, basil",
+          "price_minor": 49000,
+          "sort_order": 1,
+          "option_groups": [
+            {
+              "external_id": "grp-size",
+              "name": "Size",
+              "min_choices": 1,
+              "max_choices": 1,
+              "sort_order": 1,
+              "options": [
+                {"external_id": "opt-medium", "name": "Medium (30 cm)", "price_delta_minor": 10000, "sort_order": 1}
+              ]
+            }
+          ]
+        },
+        {
+          "external_id": "item-pepperoni",
+          "name": "Pepperoni",
+          "price_minor": 59000,
+          "sort_order": 2,
+          "option_groups": []
+        }
+      ]
+    }
+  ]
+}

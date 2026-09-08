@@ -1,0 +1,46 @@
+@startuml customer-cjm
+!theme plain
+title Customer Journey Map — Avito Kitchen
+
+|#LightBlue|Выбор|
+start
+:Выбрать город (city_id);
+:Поиск заведений\nGET /api/v1/venues;
+if (Заведение закрыто?) then (да)
+  #Pink:venue_closed\n422 venue_closed;
+  stop
+endif
+if (Вне зоны доставки?) then (да)
+  #Pink:outside_delivery_zone\n422 outside_delivery_zone;
+  stop
+endif
+
+|#LightGreen|Меню и корзина|
+:Открыть меню\nGET /venues/{slug}/menu;
+if (Позиция в стоп-листе?) then (да)
+  #Pink:item_unavailable\nissues[] item_unavailable;
+endif
+:Добавить в корзину\nPOST /cart/items;
+:Получить корзину\nGET /cart;
+if (Чек ниже минимального?) then (да)
+  #Pink:below_min_order\nissues[] below_min_order;
+endif
+
+|#LightYellow|Оформление|
+:Создать заказ\nPOST /orders\n+ Idempotency-Key;
+if (Цена изменилась?) then (да)
+  #Pink:price_changed\n409 price_changed;
+  :Обновить корзину;
+  stop
+endif
+:Трекинг статуса\nGET /orders/{id} (polling);
+
+|#LightGray|Завершение|
+if (Отмена?) then (да)
+  :POST /orders/{id}/cancel\nnot_cancellable / grace;
+else (нет)
+  :Статус completed;
+endif
+stop
+
+@enduml

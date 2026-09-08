@@ -1,0 +1,43 @@
+@startuml webhook-delivery
+!theme plain
+title Sequence — Webhook Delivery with Retries
+
+participant "outbox_publisher\nWorker" as W
+database "PostgreSQL" as DB
+participant "Webhook Sender" as S
+participant "Venue Endpoint" as V
+
+loop every OUTBOX_POLL_INTERVAL
+  W -> DB: SELECT ... FOR UPDATE SKIP LOCKED\nstatus = pending
+  DB --> W: batch of events
+  loop each event
+    W -> DB: Load venue_webhooks
+    alt no active webhook
+      W -> DB: status = skipped
+    else webhook exists
+      W -> S: POST url\nHMAC: sha256=<sig>\nX-Timestamp, X-Delivery-Id
+      S -> V: HTTP POST
+      alt 2xx response
+        V --> S: 200 OK
+        S --> W: success
+        W -> DB: status = published\n+ webhook_deliveries log
+      else transient error / timeout
+        V --> S: 5xx / timeout
+        S --> W: failure
+        W -> DB: attempts++, next_attempt_at\n(exponential backoff)
+        alt attempts >= WEBHOOK_MAX_ATTEMPTS
+          W -> DB: status = failed
+        end
+      end
+    end
+  end
+end
+
+note over V
+  Venue must deduplicate by
+  X-Delivery-Id header.
+  Polling GET /orders
+  as fallback if webhooks fail.
+end note
+
+@enduml

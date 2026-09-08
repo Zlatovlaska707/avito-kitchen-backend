@@ -1,0 +1,11 @@
+services:
+  api:
+    environment:
+      ORDER_ACCEPT_TIMEOUT: 5s
+  venue-simulator:
+    environment:
+      WEBHOOK_SECRET: local-simulator-webhook-secret-change-me
+      POLL_INTERVAL: 1s
+      ACCEPT_DELAY: 1s
+      COOK_DELAY: 2s
+      HANDOVER_DELAY: 1s

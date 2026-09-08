@@ -1,0 +1,202 @@
+@startuml schema
+!theme plain
+title Avito Kitchen — Entity-Relationship Diagram
+
+hide methods
+skinparam linetype ortho
+
+entity "venues" as venues {
+  * id : uuid <<PK>>
+  --
+  slug : text <<unique>>
+  name : text
+  status : varchar
+  accepts_orders : boolean
+  city_id : integer
+  lat, lon : numeric
+  delivery_radius_m : integer
+  min_order_minor : bigint
+  delivery_fee_minor : bigint
+}
+
+entity "venue_working_hours" as vwh {
+  * id : uuid <<PK>>
+  --
+  venue_id : uuid <<FK>>
+  weekday : smallint
+  opens_at, closes_at : time
+}
+
+entity "venue_api_keys" as vak {
+  * id : uuid <<PK>>
+  --
+  venue_id : uuid <<FK>>
+  key_prefix : char(8) <<unique>>
+  key_hash : text
+  scopes : text[]
+  is_active : boolean
+}
+
+entity "venue_webhooks" as vw {
+  * id : uuid <<PK>>
+  --
+  venue_id : uuid <<FK>>
+  url : text
+  secret : text
+  event_types : text[]
+}
+
+entity "menu_categories" as mc {
+  * id : uuid <<PK>>
+  --
+  venue_id : uuid <<FK>>
+  external_id : text
+  name : text
+}
+
+entity "menu_items" as mi {
+  * id : uuid <<PK>>
+  --
+  venue_id : uuid <<FK>>
+  category_id : uuid <<FK>>
+  external_id : text
+  price_minor : bigint
+  is_available : boolean
+  unavailable_until : timestamptz
+}
+
+entity "menu_item_option_groups" as miog {
+  * id : uuid <<PK>>
+  --
+  item_id : uuid <<FK>>
+  external_id : text
+  min_choices, max_choices : smallint
+}
+
+entity "menu_item_options" as mio {
+  * id : uuid <<PK>>
+  --
+  group_id : uuid <<FK>>
+  external_id : text
+  price_delta_minor : bigint
+}
+
+entity "customers" as customers {
+  * id : uuid <<PK>>
+  --
+  phone : text
+  name : text
+}
+
+entity "carts" as carts {
+  * id : uuid <<PK>>
+  --
+  customer_id : uuid <<FK>>
+  venue_id : uuid <<FK>>
+  status : varchar
+  order_id : uuid <<FK?>>
+  expires_at : timestamptz
+}
+
+entity "cart_items" as ci {
+  * id : uuid <<PK>>
+  --
+  cart_id : uuid <<FK>>
+  menu_item_id : uuid <<FK>>
+  quantity : smallint
+  options_hash : char(32)
+  selected_options : jsonb
+}
+
+entity "orders" as orders {
+  * id : uuid <<PK>>
+  --
+  public_number : text <<unique>>
+  customer_id : uuid <<FK>>
+  venue_id : uuid <<FK>>
+  cart_id : uuid <<FK?>>
+  status : varchar
+  fulfillment_type : varchar
+  total_minor : bigint
+  items_total_minor : bigint
+}
+
+entity "order_items" as oi {
+  * id : uuid <<PK>>
+  --
+  order_id : uuid <<FK>>
+  menu_item_id : uuid <<FK?>>
+  item_external_id : text
+  unit_price_minor : bigint
+  options_snapshot : jsonb
+}
+
+entity "order_status_history" as osh {
+  * id : bigserial <<PK>>
+  --
+  order_id : uuid <<FK>>
+  from_status, to_status : varchar
+  actor_type : varchar
+}
+
+entity "idempotency_keys" as ik {
+  * scope, key : <<PK>>
+  --
+  request_hash : char(64)
+  response_body : jsonb
+  expires_at : timestamptz
+}
+
+entity "deliveries" as deliveries {
+  * id : uuid <<PK>>
+  --
+  order_id : uuid <<FK>> <<unique>>
+  status : varchar
+  courier_name : text
+}
+
+entity "outbox_events" as oe {
+  * id : bigserial <<PK>>
+  --
+  aggregate_id : uuid
+  venue_id : uuid
+  event_type : varchar
+  payload : jsonb
+  status : varchar
+  next_attempt_at : timestamptz
+}
+
+entity "webhook_deliveries" as wd {
+  * id : bigserial <<PK>>
+  --
+  outbox_event_id : bigint <<FK>>
+  webhook_id : uuid <<FK?>>
+  attempt : smallint
+  http_status : smallint
+}
+
+venues ||--o{ vwh
+venues ||--o{ vak
+venues ||--o{ vw
+venues ||--o{ mc
+venues ||--o{ mi
+mc ||--o{ mi
+mi ||--o{ miog
+miog ||--o{ mio
+
+customers ||--o{ carts
+venues ||--o{ carts
+customers ||--o{ orders
+venues ||--o{ orders
+carts |o--o| orders : converted
+carts ||--o{ ci
+mi ||--o{ ci
+
+orders ||--o{ oi
+orders ||--o{ osh
+orders ||--o| deliveries
+
+oe ||--o{ wd
+vw |o--o{ wd
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml c4-l3
+!include <C4/C4_Component>
+title Avito Kitchen — C4 Level 3 (API Service Components)
+
+Container_Boundary(api, "API Service") {
+    Component(h_customer, "Customer Handlers", "handler/customer/*", "11 эндпоинтов: venues, cart, orders")
+    Component(h_partner, "Partner Handlers", "handler/partner/*", "11 эндпоинтов: menu, orders, webhooks")
+    Component(h_admin, "Admin Handlers", "handler/admin/*", "5 эндпоинтов: venues, keys, orders")
+    Component(mw, "Middleware", "handler/middleware", "Auth, rate limit, OpenAPI validate, logging")
+
+    Component(uc_venues, "Venues", "usecase/venues", "Onboard, keys, status, list/get")
+    Component(uc_catalog, "Catalog", "usecase/catalog", "menu_sync, availability, menu_get")
+    Component(uc_cart, "Cart", "usecase/cart", "add/update/get/clear, recalc")
+    Component(uc_ordering, "Ordering", "usecase/ordering", "create, lifecycle, lists")
+    Component(uc_delivery, "Delivery", "usecase/delivery", "assign, advance (simulation)")
+    Component(uc_shared, "Shared", "usecase/shared", "Venue open check, options")
+
+    Component(repos, "Repositories", "infrastructure/repository", "venue, catalog, cart, order, outbox, …")
+    Component(outbox_w, "Outbox Publisher", "worker/outbox_publisher", "SKIP LOCKED, HMAC delivery")
+    Component(domain, "Domain Rules", "domain/*", "money, geo, openhours, orderstatus, optionhash")
+}
+
+ContainerDb(db, "PostgreSQL", "SQL")
+Container_Ext(sim, "Venue Simulator", "Go")
+
+Rel(h_customer, mw, "through")
+Rel(h_partner, mw, "through")
+Rel(h_admin, mw, "through")
+
+Rel(mw, uc_venues, "calls")
+Rel(mw, uc_catalog, "calls")
+Rel(mw, uc_cart, "calls")
+Rel(mw, uc_ordering, "calls")
+
+Rel(uc_venues, repos, "contract")
+Rel(uc_catalog, repos, "contract")
+Rel(uc_cart, repos, "contract")
+Rel(uc_ordering, repos, "contract")
+Rel(uc_delivery, repos, "contract")
+Rel(uc_shared, domain, "uses")
+
+Rel(repos, db, "SQL")
+Rel(outbox_w, repos, "poll outbox")
+Rel(outbox_w, sim, "POST webhook")
+
+@enduml

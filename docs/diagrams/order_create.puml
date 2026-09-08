@@ -1,0 +1,46 @@
+@startuml order-create
+!theme plain
+title Sequence — Order Creation (transaction boundaries)
+
+actor Customer
+participant "Customer Handler" as H
+participant "ordering/create\nUseCase" as UC
+database "PostgreSQL" as DB
+participant "Outbox" as OB
+
+Customer -> H: POST /orders\nIdempotency-Key
+H -> UC: Execute(ctx, input)
+
+group Transaction BEGIN
+  UC -> DB: Check idempotency key
+  alt key exists (same hash)
+    UC --> H: cached response
+    H --> Customer: 200/201 replay
+  else key in progress
+    UC --> H: request_in_progress
+    H --> Customer: 409
+  else new request
+    UC -> DB: Load cart + menu (snapshot prices)
+    UC -> DB: Validate venue open, min order, delivery zone
+    alt validation failed
+      UC --> H: domain error
+      H --> Customer: 409/422
+    else ok
+      UC -> DB: INSERT orders + order_items
+      UC -> DB: UPDATE cart status = converted
+      UC -> OB: INSERT outbox_events\n(order.placed)
+      UC -> DB: Save idempotency response
+    end
+  end
+group Transaction COMMIT
+
+UC --> H: OrderDTO
+H --> Customer: 201 Created
+
+note over OB
+  Outbox row committed
+  with order — at-least-once
+  delivery by worker
+end note
+
+@enduml

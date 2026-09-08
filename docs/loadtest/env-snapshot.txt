@@ -1,0 +1,11 @@
+date=2026-09-08 14:08:29 +03:00
+git=318ce8b
+k6=grafana/k6:latest
+
+NAME                                                                                      IMAGE                                                                                   COMMAND                  SERVICE           CREATED          STATUS                    PORTS
+backend-trainee-assignment-autumn-2026-flow-2-zlatovlaska707-5c42a219-api-1               backend-trainee-assignment-autumn-2026-flow-2-zlatovlaska707-5c42a219-api               "./api"                  api               3 minutes ago    Up 2 minutes (healthy)    0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+backend-trainee-assignment-autumn-2026-flow-2-zlatovlaska707-5c42a219-postgres-1          postgres:16-alpine                                                                      "docker-entrypoint.sтАж"   postgres          44 minutes ago   Up 44 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+backend-trainee-assignment-autumn-2026-flow-2-zlatovlaska707-5c42a219-venue-simulator-1   backend-trainee-assignment-autumn-2026-flow-2-zlatovlaska707-5c42a219-venue-simulator   "/app/venue-simulator"   venue-simulator   44 minutes ago   Up 43 minutes             0.0.0.0:8081->8081/tcp, [::]:8081->8081/tcp
+
+health:
+{"status":"ready"}

@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kitchen
+      POSTGRES_PASSWORD: kitchen
+      POSTGRES_DB: kitchen
+    command: >
+      postgres -c max_connections=100 -c shared_buffers=256MB
+               -c log_min_duration_statement=200ms
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kitchen -d kitchen"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports: ["5432:5432"]
+
+  migrator:
+    build: .
+    entrypoint: ["./migrator", "--seed", "up"]
+    environment:
+      POSTGRES_DSN: postgres://kitchen:kitchen@postgres:5432/kitchen?sslmode=disable
+      SEED_PARTNER_API_KEY: ak_demopizz_xK9mN2pQ7vR4wL8hT3jF6sD1aB0cE5gY9uI2oP4
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  api:
+    build: .
+    environment:
+      POSTGRES_DSN: postgres://kitchen:kitchen@postgres:5432/kitchen?sslmode=disable
+      ADMIN_API_TOKEN: local-admin-token-change-me
+      WEBHOOK_ALLOW_PRIVATE_IPS: "true"
+      APP_ENV: local
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrator: {condition: service_completed_successfully}
+    ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  venue-simulator:
+    build: ./venue-simulator
+    environment:
+      PLATFORM_API_URL: http://api:8080
+      PARTNER_API_KEY: ak_demopizz_xK9mN2pQ7vR4wL8hT3jF6sD1aB0cE5gY9uI2oP4
+      WEBHOOK_PUBLIC_URL: http://venue-simulator:8081/webhooks/orders
+      WEBHOOK_SECRET: local-simulator-webhook-secret-change-me
+      MODE: auto_accept
+    depends_on:
+      api: {condition: service_healthy}
+    ports: ["8081:8081"]
+
+  k6:
+    image: grafana/k6:latest
+    profiles: ["loadtest"]
+    volumes: ["./test/k6:/scripts"]
+    command: ["run", "/scripts/mixed.js"]
+    environment:
+      API_BASE_URL: http://api:8080
+
+volumes:
+  pgdata:

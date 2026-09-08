@@ -1,0 +1,34 @@
+# k6 mixed.js — excerpt (THRESHOLDS + TOTAL RESULTS)
+# Source: docs/loadtest/mixed-console.log
+# Run: 2026-09-08, duration 2m00s
+
+  █ THRESHOLDS 
+
+    http_req_duration
+    ✓ 'p(95)<250' p(95)=11.61ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 17405   144.863875/s
+    checks_succeeded...: 100.00% 17405 out of 17405
+    checks_failed......: 0.00%   0 out of 17405
+
+    ✓ partner orders status 200
+    ✓ venues status 200
+    ✓ menu status 200
+    ✓ cart add status 2xx
+    ✓ order status 201
+    ✓ cart get status 200
+
+    HTTP
+    http_req_duration..............: avg=4.97ms  min=897.4µs med=2.86ms  max=474.18ms p(90)=8.39ms   p(95)=11.61ms
+    http_req_failed................: 0.00%  0 out of 17405
+    http_reqs......................: 17405  144.863875/s
+
+    EXECUTION
+    iterations.....................: 15447  128.567209/s
+    vus_max........................: 87

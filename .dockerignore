@@ -1,0 +1,10 @@
+.git
+.idea
+.vscode
+bin
+coverage.*
+*.md
+docs
+test/k6
+venue-simulator
+.github

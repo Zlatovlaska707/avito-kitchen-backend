@@ -1,0 +1,86 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - errorlint
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+    - noctx
+    - contextcheck
+    - gosec
+    - revive
+    - misspell
+    - unconvert
+    - unparam
+    - nilerr
+    - dupl
+    - goconst
+    - depguard
+  settings:
+    govet:
+      enable:
+        - shadow
+    dupl:
+      threshold: 150
+    depguard:
+      rules:
+        domain-stdlib-only:
+          list-mode: strict
+          files:
+            - internal/domain/**
+          allow:
+            - $gostd
+        no-venue-simulator:
+          list-mode: lax
+          files:
+            - internal/**
+          deny:
+            - pkg: github.com/zlatovlaska707/avito-kitchen/venue-simulator
+              desc: venue-simulator is a separate module; internal must not import it
+        no-http-in-usecase:
+          list-mode: lax
+          files:
+            - internal/usecase/**
+            - internal/domain/**
+          deny:
+            - pkg: net/http
+              desc: HTTP types belong in handler layer
+            - pkg: github.com/go-chi/chi
+              desc: router belongs in handler layer
+            - pkg: github.com/go-chi/chi/v5
+              desc: router belongs in handler layer
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - goconst
+          - gosec
+          - unparam
+      - path: \.gen\.go
+        linters:
+          - gosec
+          - errcheck
+          - revive
+          - staticcheck
+          - unused
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

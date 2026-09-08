@@ -1,0 +1,35 @@
+# k6 spike.js — excerpt (THRESHOLDS + TOTAL RESULTS)
+# Source: docs/loadtest/spike-console.log
+# Run: 2026-09-08, duration 50s, default RATE_LIMIT_RPS_PUBLIC=100
+
+  █ THRESHOLDS 
+
+    http_req_duration{status:200}
+    ✓ 'p(95)<500' p(95)=4.9ms
+
+    http_req_duration{status:429}
+    ✓ 'p(95)<50' p(95)=804.13µs
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=56.71%    ← ожидаемо: k6 считает 429 «failed», checks при этом 100%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 19098   381.976876/s
+    checks_succeeded...: 100.00% 19098 out of 19098
+
+    ✓ no 5xx
+    ✓ 200 or 429
+
+    HTTP
+    http_req_duration..............: avg=1.62ms   p(95)=4.08ms
+      { status:200 }...............: avg=3.06ms   p(95)=4.9ms    (n=4133)
+      { status:429 }...............: avg=525.26µs p(95)=804.13µs (n=5416)
+    http_req_failed................: 56.71% 5416 out of 9549
+    http_reqs......................: 9549   190.988438/s
+
+    Status breakdown:
+      200 OK  → 4133 (43.3%)
+      429     → 5416 (56.7%)
+      5xx     →    0 (0.0%)

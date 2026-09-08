@@ -1,0 +1,296 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.25.13"
+  GOLANGCI_LINT_VERSION: v2.5.0
+  IMAGE_NAME: avito-kitchen
+  COVERAGE_THRESHOLD: "80"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            go.sum
+            venue-simulator/go.sum
+
+      - name: Download modules
+        run: |
+          go mod download
+          cd venue-simulator && go mod download
+
+      - name: Verify go.mod tidy (root)
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Verify go.mod tidy (venue-simulator)
+        run: |
+          cd venue-simulator
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Check formatting
+        run: |
+          go run mvdan.cc/gofumpt@v0.7.0 -l . | tee /tmp/fmt.out
+          test ! -s /tmp/fmt.out
+
+      - name: Go vet
+        run: |
+          go vet ./...
+          cd venue-simulator && go vet ./...
+
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: ./...
+
+      - name: OpenAPI lint
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/api:/api" \
+            stoplight/spectral lint --ruleset /api/.spectral.yaml /api/openapi.yaml
+
+      - name: Hadolint (api)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+      - name: Hadolint (venue-simulator)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: venue-simulator/Dockerfile
+
+      - name: Vulnerability check
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest -test=false ./cmd/... ./internal/...
+          cd venue-simulator && go run golang.org/x/vuln/cmd/govulncheck@latest -test=false ./...
+
+  test-unit:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Unit tests
+        run: |
+          go test -race -cover -coverprofile=coverage.out -covermode=atomic ./internal/...
+          cd venue-simulator && go test -race -cover -covermode=atomic ./...
+
+      - name: Domain and usecase coverage gate
+        run: |
+          mapfile -t packages < <(go list ./internal/domain/... ./internal/usecase/... | grep -v '/uctest$')
+          go test -coverprofile=domain_usecase.out -covermode=atomic "${packages[@]}"
+          bash scripts/check_coverage.sh domain_usecase.out
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage.out
+            domain_usecase.out
+
+  test-integration:
+    needs: test-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Integration tests
+        run: go test -race -tags=integration ./test/integration/... ./test/contract/...
+
+  migrations:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kitchen
+          POSTGRES_PASSWORD: kitchen
+          POSTGRES_DB: kitchen
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kitchen -d kitchen"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      POSTGRES_DSN: postgres://kitchen:kitchen@localhost:5432/kitchen?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Migration up / down-to 0 / up
+        run: |
+          go run ./cmd/migrator up
+          go run ./cmd/migrator down-to 0
+          go run ./cmd/migrator up
+
+      - name: Dump schema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=kitchen pg_dump --schema-only --no-owner --no-privileges \
+            -h localhost -U kitchen -d kitchen > schema.sql
+
+      - name: Upload schema artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-schema
+          path: schema.sql
+
+  build:
+    needs: test-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            go.sum
+            venue-simulator/go.sum
+
+      - name: Build (linux)
+        run: |
+          GOOS=linux GOARCH=amd64 go build ./...
+          cd venue-simulator && GOOS=linux GOARCH=amd64 go build ./...
+
+  e2e:
+    needs: [test-integration, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Start stack
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
+
+      - name: E2E tests
+        run: go test -v -tags=e2e ./test/api/...
+
+      - name: Collect compose logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml logs > compose-logs.txt
+
+      - name: Upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs
+          path: compose-logs.txt
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml down -v
+
+  image:
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test (compose + health/ready)
+        run: |
+          docker compose up -d --wait
+          curl -fsS http://localhost:8080/health/ready
+          docker compose down -v
+
+      - name: Save Docker image
+        run: docker save ${{ env.IMAGE_NAME }}:latest | gzip > avito-kitchen-image.tar.gz
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: avito-kitchen-image.tar.gz
+
+  diagrams:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render PlantUML diagrams
+        run: |
+          mapfile -t files < <(find docs -name '*.puml' -type f | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No PlantUML files under docs/ — skipping render"
+            exit 0
+          fi
+          args=()
+          for f in "${files[@]}"; do
+            args+=("/${f}")
+          done
+          docker run --rm \
+            -v "${{ github.workspace }}/docs:/docs" \
+            plantuml/plantuml:latest \
+            -tpng "${args[@]}"
+
+      - name: Upload diagram artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagrams
+          path: docs/
+          if-no-files-found: ignore

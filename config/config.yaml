@@ -1,0 +1,75 @@
+app:
+  env: local
+  default_timezone: Europe/Moscow
+
+http:
+  address: ":8080"
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 60s
+  handler_timeout: 5s
+  shutdown_timeout: 30s
+  max_body_bytes: 1048576
+  max_body_bytes_public: 262144
+
+postgres:
+  max_conns: 20
+  min_conns: 2
+  max_conn_lifetime: 1h
+  max_conn_idle_time: 15m
+  query_timeout: 3s
+  worker_max_conns: 5
+
+migrate:
+  auto_run: false
+  dir: ./migrations
+
+order:
+  accept_timeout: 10m
+  cancel_grace: 120s
+
+cart:
+  ttl: 24h
+  max_items: 100
+
+idempotency:
+  ttl: 24h
+
+menu_sync:
+  max_items: 2000
+  max_categories: 200
+
+webhook:
+  timeout: 3s
+  max_attempts: 5
+  allow_private_ips: false
+
+outbox:
+  poll_interval: 1s
+  batch_size: 50
+
+workers:
+  enabled: true
+
+rate:
+  rps_public: 100
+  rps_public_write: 20
+  rps_partner: 50
+
+delivery:
+  simulation_enabled: true
+  assign_delay: 30s
+  transit_delay: 60s
+  base_minutes: 10
+  minutes_per_km: 3.0
+
+log:
+  level: info
+  format: json
+
+openapi:
+  validate_requests: true
+  validate_responses: false
+
+swagger:
+  enabled: true
